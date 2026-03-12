@@ -22,8 +22,7 @@ class PatientController extends Controller
                         'id' => $patient->id,
                         'name' => $patient->name,
                         'phone' => $patient->phone,
-                        'email' => $patient->email,
-                        'date_of_birth' => $patient->date_of_birth,
+                        'birth_date' => $patient->birth_date,
                         'gender' => $patient->gender,
                         'created_at' => $patient->created_at->format('Y-m-d H:i:s'),
                     ];
@@ -52,7 +51,7 @@ class PatientController extends Controller
     public function show($id)
     {
         try {
-            $patient = Patient::with(['medicalHistory', 'dentalHistory', 'reservations.service', 'reservations.doctor', 'rontgens'])
+            $patient = Patient::with(['medicalHistory', 'dentalHistory', 'reservations.services', 'reservations.doctor', 'rontgens'])
                 ->find($id);
 
             if (!$patient) {
@@ -66,30 +65,48 @@ class PatientController extends Controller
                 'id' => $patient->id,
                 'name' => $patient->name,
                 'phone' => $patient->phone,
-                'email' => $patient->email,
-                'date_of_birth' => $patient->date_of_birth,
+                'birth_date' => $patient->birth_date,
                 'gender' => $patient->gender,
                 'address' => $patient->address,
+                'age' => $patient->age,
                 'medical_history' => $patient->medicalHistory ? [
                     'id' => $patient->medicalHistory->id,
-                    'blood_type' => $patient->medicalHistory->blood_type,
-                    'allergies' => $patient->medicalHistory->allergies,
-                    'current_medications' => $patient->medicalHistory->current_medications,
-                    'medical_conditions' => $patient->medicalHistory->medical_conditions,
+                    'has_allergy' => $patient->medicalHistory->has_allergy,
+                    'allergy_detail' => $patient->medicalHistory->allergy_detail,
+                    'has_systemic_disease' => $patient->medicalHistory->has_systemic_disease,
+                    'systemic_disease_detail' => $patient->medicalHistory->systemic_disease_detail,
+                    'undergoing_treatment' => $patient->medicalHistory->undergoing_treatment,
+                    'treatment_detail' => $patient->medicalHistory->treatment_detail,
+                    'ever_hospitalized' => $patient->medicalHistory->ever_hospitalized,
+                    'hospitalized_reason' => $patient->medicalHistory->hospitalized_reason,
+                    'smoking_or_alcohol' => $patient->medicalHistory->smoking_or_alcohol,
                 ] : null,
                 'dental_history' => $patient->dentalHistory ? [
                     'id' => $patient->dentalHistory->id,
-                    'last_dental_visit' => $patient->dentalHistory->last_dental_visit,
-                    'dental_problems' => $patient->dentalHistory->dental_problems,
-                    'previous_treatments' => $patient->dentalHistory->previous_treatments,
+                    'frequent_tooth_pain' => $patient->dentalHistory->frequent_tooth_pain,
+                    'tooth_pain_detail' => $patient->dentalHistory->tooth_pain_detail,
+                    'bleeding_gums' => $patient->dentalHistory->bleeding_gums,
+                    'ever_dental_treatment' => $patient->dentalHistory->ever_dental_treatment,
+                    'dental_treatment_detail' => $patient->dentalHistory->dental_treatment_detail,
+                    'brushing_frequency' => $patient->dentalHistory->brushing_frequency,
+                    'use_floss_or_mouthwash' => $patient->dentalHistory->use_floss_or_mouthwash,
+                    'bad_habits' => $patient->dentalHistory->bad_habits,
+                    'bad_habits_detail' => $patient->dentalHistory->bad_habits_detail,
+                    'ever_braces' => $patient->dentalHistory->ever_braces,
+                    'braces_years' => $patient->dentalHistory->braces_years,
+                    'root_canal_treatment' => $patient->dentalHistory->root_canal_treatment,
+                    'root_canal_detail' => $patient->dentalHistory->root_canal_detail,
+                    'dentures' => $patient->dentalHistory->dentures,
+                    'routine_checkup' => $patient->dentalHistory->routine_checkup,
+                    'dental_checkup_frequency' => $patient->dentalHistory->dental_checkup_frequency,
                 ] : null,
                 'reservations' => $patient->reservations->map(function ($reservation) {
                     return [
                         'id' => $reservation->id,
-                        'service_name' => $reservation->service->name,
+                        'services' => $reservation->services->pluck('name'),
                         'doctor_name' => $reservation->doctor->name,
                         'reservation_date' => $reservation->reservation_date,
-                        'reservation_time' => substr($reservation->reservation_time, 0, 5),
+                        'appointment_time' => substr($reservation->appointment_time, 0, 5),
                         'status' => $reservation->status,
                     ];
                 }),
@@ -132,10 +149,10 @@ class PatientController extends Controller
 
             if ($request->has('name')) $patient->name = $request->name;
             if ($request->has('phone')) $patient->phone = $request->phone;
-            if ($request->has('email')) $patient->email = $request->email;
-            if ($request->has('date_of_birth')) $patient->date_of_birth = $request->date_of_birth;
+            if ($request->has('birth_date')) $patient->birth_date = $request->birth_date;
             if ($request->has('gender')) $patient->gender = $request->gender;
             if ($request->has('address')) $patient->address = $request->address;
+            if ($request->has('age')) $patient->age = $request->age;
 
             $patient->save();
 
@@ -165,20 +182,38 @@ class PatientController extends Controller
                 'id' => $patient->id,
                 'name' => $patient->name,
                 'phone' => $patient->phone,
-                'email' => $patient->email,
-                'date_of_birth' => $patient->date_of_birth,
+                'birth_date' => $patient->birth_date,
                 'gender' => $patient->gender,
                 'address' => $patient->address,
+                'age' => $patient->age,
                 'medical_history' => $patient->medicalHistory ? [
-                    'blood_type' => $patient->medicalHistory->blood_type,
-                    'allergies' => $patient->medicalHistory->allergies,
-                    'current_medications' => $patient->medicalHistory->current_medications,
-                    'medical_conditions' => $patient->medicalHistory->medical_conditions,
+                    'has_allergy' => $patient->medicalHistory->has_allergy,
+                    'allergy_detail' => $patient->medicalHistory->allergy_detail,
+                    'has_systemic_disease' => $patient->medicalHistory->has_systemic_disease,
+                    'systemic_disease_detail' => $patient->medicalHistory->systemic_disease_detail,
+                    'undergoing_treatment' => $patient->medicalHistory->undergoing_treatment,
+                    'treatment_detail' => $patient->medicalHistory->treatment_detail,
+                    'ever_hospitalized' => $patient->medicalHistory->ever_hospitalized,
+                    'hospitalized_reason' => $patient->medicalHistory->hospitalized_reason,
+                    'smoking_or_alcohol' => $patient->medicalHistory->smoking_or_alcohol,
                 ] : null,
                 'dental_history' => $patient->dentalHistory ? [
-                    'last_dental_visit' => $patient->dentalHistory->last_dental_visit,
-                    'dental_problems' => $patient->dentalHistory->dental_problems,
-                    'previous_treatments' => $patient->dentalHistory->previous_treatments,
+                    'frequent_tooth_pain' => $patient->dentalHistory->frequent_tooth_pain,
+                    'tooth_pain_detail' => $patient->dentalHistory->tooth_pain_detail,
+                    'bleeding_gums' => $patient->dentalHistory->bleeding_gums,
+                    'ever_dental_treatment' => $patient->dentalHistory->ever_dental_treatment,
+                    'dental_treatment_detail' => $patient->dentalHistory->dental_treatment_detail,
+                    'brushing_frequency' => $patient->dentalHistory->brushing_frequency,
+                    'use_floss_or_mouthwash' => $patient->dentalHistory->use_floss_or_mouthwash,
+                    'bad_habits' => $patient->dentalHistory->bad_habits,
+                    'bad_habits_detail' => $patient->dentalHistory->bad_habits_detail,
+                    'ever_braces' => $patient->dentalHistory->ever_braces,
+                    'braces_years' => $patient->dentalHistory->braces_years,
+                    'root_canal_treatment' => $patient->dentalHistory->root_canal_treatment,
+                    'root_canal_detail' => $patient->dentalHistory->root_canal_detail,
+                    'dentures' => $patient->dentalHistory->dentures,
+                    'routine_checkup' => $patient->dentalHistory->routine_checkup,
+                    'dental_checkup_frequency' => $patient->dentalHistory->dental_checkup_frequency,
                 ] : null,
             ];
 

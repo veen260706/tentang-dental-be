@@ -12,7 +12,7 @@ class ReservationController extends Controller
     public function index()
     {
         try {
-            $reservations = Reservation::with(['patient', 'service', 'doctor'])
+            $reservations = Reservation::with(['patient', 'services', 'doctor'])
                 ->latest()
                 ->paginate(10);
 
@@ -24,20 +24,20 @@ class ReservationController extends Controller
                             'id' => $reservation->patient->id,
                             'name' => $reservation->patient->name,
                             'phone' => $reservation->patient->phone,
-                            'email' => $reservation->patient->email,
                         ],
-                        'service' => [
-                            'id' => $reservation->service->id,
-                            'name' => $reservation->service->name,
-                        ],
+                        'services' => $reservation->services->map(function ($service) {
+                            return [
+                                'id' => $service->id,
+                                'name' => $service->name,
+                            ];
+                        }),
                         'doctor' => [
                             'id' => $reservation->doctor->id,
                             'name' => $reservation->doctor->name,
                         ],
                         'reservation_date' => $reservation->reservation_date,
-                        'reservation_time' => substr($reservation->reservation_time, 0, 5),
+                        'appointment_time' => substr($reservation->appointment_time, 0, 5),
                         'status' => $reservation->status,
-                        'notes' => $reservation->notes,
                         'created_at' => $reservation->created_at->format('Y-m-d H:i:s'),
                     ];
                 }),
@@ -65,7 +65,7 @@ class ReservationController extends Controller
     public function show($id)
     {
         try {
-            $reservation = Reservation::with(['patient.medicalHistory', 'patient.dentalHistory', 'service', 'doctor'])
+            $reservation = Reservation::with(['patient.medicalHistory', 'patient.dentalHistory', 'services', 'doctor'])
                 ->find($id);
 
             if (!$reservation) {
@@ -81,38 +81,56 @@ class ReservationController extends Controller
                     'id' => $reservation->patient->id,
                     'name' => $reservation->patient->name,
                     'phone' => $reservation->patient->phone,
-                    'email' => $reservation->patient->email,
-                    'date_of_birth' => $reservation->patient->date_of_birth,
+                    'birth_date' => $reservation->patient->birth_date,
                     'gender' => $reservation->patient->gender,
                     'address' => $reservation->patient->address,
                     'medical_history' => $reservation->patient->medicalHistory ? [
-                        'blood_type' => $reservation->patient->medicalHistory->blood_type,
-                        'allergies' => $reservation->patient->medicalHistory->allergies,
-                        'current_medications' => $reservation->patient->medicalHistory->current_medications,
-                        'medical_conditions' => $reservation->patient->medicalHistory->medical_conditions,
+                        'has_allergy' => $reservation->patient->medicalHistory->has_allergy,
+                        'allergy_detail' => $reservation->patient->medicalHistory->allergy_detail,
+                        'has_systemic_disease' => $reservation->patient->medicalHistory->has_systemic_disease,
+                        'systemic_disease_detail' => $reservation->patient->medicalHistory->systemic_disease_detail,
+                        'undergoing_treatment' => $reservation->patient->medicalHistory->undergoing_treatment,
+                        'treatment_detail' => $reservation->patient->medicalHistory->treatment_detail,
+                        'ever_hospitalized' => $reservation->patient->medicalHistory->ever_hospitalized,
+                        'hospitalized_reason' => $reservation->patient->medicalHistory->hospitalized_reason,
+                        'smoking_or_alcohol' => $reservation->patient->medicalHistory->smoking_or_alcohol,
                     ] : null,
                     'dental_history' => $reservation->patient->dentalHistory ? [
-                        'last_dental_visit' => $reservation->patient->dentalHistory->last_dental_visit,
-                        'dental_problems' => $reservation->patient->dentalHistory->dental_problems,
-                        'previous_treatments' => $reservation->patient->dentalHistory->previous_treatments,
+                        'frequent_tooth_pain' => $reservation->patient->dentalHistory->frequent_tooth_pain,
+                        'tooth_pain_detail' => $reservation->patient->dentalHistory->tooth_pain_detail,
+                        'bleeding_gums' => $reservation->patient->dentalHistory->bleeding_gums,
+                        'ever_dental_treatment' => $reservation->patient->dentalHistory->ever_dental_treatment,
+                        'dental_treatment_detail' => $reservation->patient->dentalHistory->dental_treatment_detail,
+                        'brushing_frequency' => $reservation->patient->dentalHistory->brushing_frequency,
+                        'use_floss_or_mouthwash' => $reservation->patient->dentalHistory->use_floss_or_mouthwash,
+                        'bad_habits' => $reservation->patient->dentalHistory->bad_habits,
+                        'bad_habits_detail' => $reservation->patient->dentalHistory->bad_habits_detail,
+                        'ever_braces' => $reservation->patient->dentalHistory->ever_braces,
+                        'braces_years' => $reservation->patient->dentalHistory->braces_years,
+                        'root_canal_treatment' => $reservation->patient->dentalHistory->root_canal_treatment,
+                        'root_canal_detail' => $reservation->patient->dentalHistory->root_canal_detail,
+                        'dentures' => $reservation->patient->dentalHistory->dentures,
+                        'routine_checkup' => $reservation->patient->dentalHistory->routine_checkup,
+                        'dental_checkup_frequency' => $reservation->patient->dentalHistory->dental_checkup_frequency,
                     ] : null,
                 ],
-                'service' => [
-                    'id' => $reservation->service->id,
-                    'name' => $reservation->service->name,
-                    'price' => $reservation->service->price,
-                ],
+                'services' => $reservation->services->map(function ($service) {
+                    return [
+                        'id' => $service->id,
+                        'name' => $service->name,
+                        'detail' => $service->detail,
+                    ];
+                }),
                 'doctor' => [
                     'id' => $reservation->doctor->id,
                     'name' => $reservation->doctor->name,
                     'specialization' => $reservation->doctor->specialization,
                 ],
+                'complain' => $reservation->complain,
                 'reservation_date' => $reservation->reservation_date,
-                'reservation_time' => substr($reservation->reservation_time, 0, 5),
+                'appointment_time' => substr($reservation->appointment_time, 0, 5),
                 'status' => $reservation->status,
-                'notes' => $reservation->notes,
                 'created_at' => $reservation->created_at->format('Y-m-d H:i:s'),
-                'updated_at' => $reservation->updated_at->format('Y-m-d H:i:s'),
             ];
 
             return response()->json(
@@ -144,17 +162,12 @@ class ReservationController extends Controller
                 $reservation->status = $request->status;
             }
 
-            if ($request->has('notes')) {
-                $reservation->notes = $request->notes;
-            }
-
             $reservation->save();
 
             $data = [
                 'id' => $reservation->id,
                 'status' => $reservation->status,
-                'notes' => $reservation->notes,
-                'updated_at' => $reservation->updated_at->format('Y-m-d H:i:s'),
+                'created_at' => $reservation->created_at->format('Y-m-d H:i:s'),
             ];
 
             return response()->json(

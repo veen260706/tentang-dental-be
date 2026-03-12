@@ -35,6 +35,7 @@ Route::get('/articles/{slug}', [ArticleController::class, 'show']);
 Route::get('/galleries', [GalleryController::class, 'index']);
 
 Route::get('/doctors', [DoctorController::class, 'index']);
+Route::get('/doctors/{id}', [DoctorController::class, 'show']);
 
 Route::get('/testimonials', [TestimonialController::class, 'index']);
 

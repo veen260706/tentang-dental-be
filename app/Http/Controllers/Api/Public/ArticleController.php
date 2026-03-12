@@ -48,4 +48,41 @@ class ArticleController extends Controller
             );
         }
     }
+
+    public function show($slug)
+    {
+        try {
+            $article = Article::with('admin:id,name')
+                ->where('slug', $slug)
+                ->first();
+
+            if (!$article) {
+                return response()->json(
+                    FileHelper::formatResponse(false, null, 'Artikel tidak ditemukan'),
+                    404
+                );
+            }
+
+            $data = [
+                'id' => $article->id,
+                'title' => $article->title,
+                'slug' => $article->slug,
+                'content' => $article->content,
+                'image_url' => $article->image ? asset('storage/articles/' . $article->image) : null,
+                'writer' => $article->admin ? $article->admin->name : null,
+                'published_at' => $article->created_at->format('d M Y'),
+                'published_at_full' => $article->created_at->format('Y-m-d H:i:s'),
+            ];
+
+            return response()->json(
+                FileHelper::formatResponse(true, $data, 'Detail artikel berhasil diambil'),
+                200
+            );
+        } catch (\Exception $e) {
+            return response()->json(
+                FileHelper::formatResponse(false, null, 'Terjadi kesalahan: ' . $e->getMessage()),
+                500
+            );
+        }
+    }
 }

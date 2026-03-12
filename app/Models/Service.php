@@ -14,26 +14,16 @@ class Service extends Model
         'detail',
         'icon',
         'article_content',
-        'image',
         'support_image',
     ];
 
-    protected $appends = ['icon_url', 'image_url', 'support_image_url'];
+    protected $appends = ['icon_url', 'support_image_url'];
 
     // Accessor for icon URL
     public function getIconUrlAttribute()
     {
         if ($this->icon) {
             return asset('storage/' . $this->icon);
-        }
-        return null;
-    }
-
-    // Accessor for image URL
-    public function getImageUrlAttribute()
-    {
-        if ($this->image) {
-            return asset('storage/' . $this->image);
         }
         return null;
     }

@@ -2,7 +2,9 @@
 
 namespace App\Http\Controllers\Api\Admin;
 
+use App\Http\Controllers\Api\Concerns\FormatsApiResponse;
 use App\Http\Controllers\Controller;
+use App\Http\Resources\Admin\PromoResource;
 use App\Models\Promo;
 use App\Http\Requests\StorePromoRequest;
 use App\Http\Requests\UpdatePromoRequest;
@@ -11,34 +13,17 @@ use Illuminate\Support\Facades\DB;
 
 class PromoController extends Controller
 {
+    use FormatsApiResponse;
+
     public function index()
     {
         try {
             $promos = Promo::latest()->paginate(10);
-
-            $data = [
-                'promos' => $promos->map(function ($promo) {
-                    return [
-                        'id' => $promo->id,
-                        'name' => $promo->name,
-                        'image_url' => $promo->image ? asset('storage/promos/' . $promo->image) : null,
-                        'detail' => $promo->detail,
-                        'original_price' => (float) $promo->original_price,
-                        'promo_price' => (float) $promo->promo_price,
-                        'created_at' => $promo->created_at->format('Y-m-d H:i:s'),
-                    ];
-                }),
-                'pagination' => [
-                    'current_page' => $promos->currentPage(),
-                    'last_page' => $promos->lastPage(),
-                    'per_page' => $promos->perPage(),
-                    'total' => $promos->total(),
-                ],
-            ];
-
-            return response()->json(
-                FileHelper::formatResponse(true, $data, 'Data promo berhasil diambil'),
-                200
+            return $this->paginatedResourceResponse(
+                $promos,
+                'promos',
+                PromoResource::collection($promos->getCollection())->resolve(),
+                'Data promo berhasil diambil'
             );
 
         } catch (\Exception $e) {
@@ -73,17 +58,8 @@ class PromoController extends Controller
 
             DB::commit();
 
-            $data = [
-                'id' => $promo->id,
-                'name' => $promo->name,
-                'image_url' => asset('storage/promos/' . $promo->image),
-                'detail' => $promo->detail,
-                'original_price' => (float) $promo->original_price,
-                'promo_price' => (float) $promo->promo_price,
-            ];
-
             return response()->json(
-                FileHelper::formatResponse(true, $data, 'Promo berhasil ditambahkan'),
+                FileHelper::formatResponse(true, new PromoResource($promo), 'Promo berhasil ditambahkan'),
                 201
             );
 
@@ -113,19 +89,8 @@ class PromoController extends Controller
                 );
             }
 
-            $data = [
-                'id' => $promo->id,
-                'name' => $promo->name,
-                'image_url' => $promo->image ? asset('storage/promos/' . $promo->image) : null,
-                'detail' => $promo->detail,
-                'original_price' => (float) $promo->original_price,
-                'promo_price' => (float) $promo->promo_price,
-                'created_at' => $promo->created_at->format('Y-m-d H:i:s'),
-                'updated_at' => $promo->updated_at->format('Y-m-d H:i:s'),
-            ];
-
             return response()->json(
-                FileHelper::formatResponse(true, $data, 'Detail promo berhasil diambil'),
+                FileHelper::formatResponse(true, new PromoResource($promo), 'Detail promo berhasil diambil'),
                 200
             );
 
@@ -179,17 +144,8 @@ class PromoController extends Controller
 
             DB::commit();
 
-            $data = [
-                'id' => $promo->id,
-                'name' => $promo->name,
-                'image_url' => asset('storage/promos/' . $promo->image),
-                'detail' => $promo->detail,
-                'original_price' => (float) $promo->original_price,
-                'promo_price' => (float) $promo->promo_price,
-            ];
-
             return response()->json(
-                FileHelper::formatResponse(true, $data, 'Promo berhasil diupdate'),
+                FileHelper::formatResponse(true, new PromoResource($promo), 'Promo berhasil diupdate'),
                 200
             );
 

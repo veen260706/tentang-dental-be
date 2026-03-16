@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api\Public;
 
 use App\Helpers\FileHelper;
 use App\Http\Controllers\Controller;
+use App\Http\Resources\Public\DoctorResource;
 use App\Models\Doctor;
 use Illuminate\Http\Request;
 
@@ -13,20 +14,10 @@ class DoctorController extends Controller
     {
         try {
             $doctors = Doctor::select('id', 'name', 'specialization', 'photo', 'schedule', 'statement')
-                ->get()
-                ->map(function ($doctor) {
-                    return [
-                        'id' => $doctor->id,
-                        'name' => $doctor->name,
-                        'specialization' => $doctor->specialization,
-                        'photo_url' => $doctor->photo ? asset('storage/doctors/' . $doctor->photo) : null,
-                        'schedule' => $doctor->schedule,
-                        'statement' => $doctor->statement,
-                    ];
-                });
+                ->get();
 
             return response()->json(
-                FileHelper::formatResponse(true, $doctors, 'Data dokter berhasil diambil')
+                FileHelper::formatResponse(true, DoctorResource::collection($doctors), 'Data dokter berhasil diambil')
             );
         } catch (\Exception $e) {
             return response()->json(
@@ -47,17 +38,8 @@ class DoctorController extends Controller
                 );
             }
 
-            $data = [
-                'id' => $doctor->id,
-                'name' => $doctor->name,
-                'specialization' => $doctor->specialization,
-                'photo_url' => $doctor->photo ? asset('storage/doctors/' . $doctor->photo) : null,
-                'schedule' => $doctor->schedule,
-                'statement' => $doctor->statement,
-            ];
-
             return response()->json(
-                FileHelper::formatResponse(true, $data, 'Detail dokter berhasil diambil'),
+                FileHelper::formatResponse(true, new DoctorResource($doctor), 'Detail dokter berhasil diambil'),
                 200
             );
         } catch (\Exception $e) {

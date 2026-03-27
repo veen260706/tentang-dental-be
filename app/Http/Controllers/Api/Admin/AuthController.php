@@ -24,7 +24,7 @@ class AuthController extends Controller
                 'name' => $request->name,
                 'email' => $request->email,
                 'password' => $request->password,
-                'role' => 'registration',
+                'role' => 'rontgen',
                 'profile_image' => null,
             ]);
 

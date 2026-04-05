@@ -73,6 +73,7 @@ Route::prefix('admin')->group(function () {
             Route::get('/dashboard/service-analytics', [DashboardController::class, 'serviceAnalytics']);
             
             // Reservation Management
+            Route::post('/reservations', [AdminReservationController::class, 'store']);
             Route::get('/reservations', [AdminReservationController::class, 'index']);
             Route::get('/reservations/{id}', [AdminReservationController::class, 'show']);
             Route::put('/reservations/{id}', [AdminReservationController::class, 'update']);
@@ -88,6 +89,7 @@ Route::prefix('admin')->group(function () {
             // Shared read/download access
             Route::get('/patients', [PatientController::class, 'index']);
             Route::get('/patients/{id}', [PatientController::class, 'show']);
+            Route::get('/patients/{id}/rontgens', [PatientController::class, 'rontgens']);
             Route::get('/patients/{id}/download-pdf', [PatientController::class, 'downloadPdf']);
 
             Route::get('/rontgens', [RontgenController::class, 'index']);

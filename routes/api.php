@@ -20,6 +20,8 @@ use App\Http\Controllers\Api\Public\PromoController;
 use App\Http\Controllers\Api\Public\ReservationController as PublicReservationController;
 use App\Http\Controllers\Api\Public\ServiceController;
 use App\Http\Controllers\Api\Public\TestimonialController;
+use App\Http\Controllers\Api\Admin\NotificationController;
+use App\Http\Controllers\Api\Admin\TagController;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/promos', [PromoController::class, 'index']);
@@ -91,6 +93,12 @@ Route::prefix('admin')->group(function () {
             Route::get('/rontgens', [RontgenController::class, 'index']);
             Route::get('/rontgens/{id}', [RontgenController::class, 'show']);
             Route::get('/rontgens/{id}/download', [RontgenController::class, 'download']);
+
+            
+            Route::get('/tags', [TagController::class, 'index']);
+            Route::get('/notifications', [NotificationController::class, 'index']);
+            Route::put('/notifications/read-all', [NotificationController::class, 'markAllRead']);
+            Route::put('/notifications/{id}/read', [NotificationController::class, 'markRead']);
         });
         
         Route::middleware('role:rontgen')->group(function () {

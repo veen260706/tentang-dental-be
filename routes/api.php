@@ -73,8 +73,6 @@ Route::prefix('admin')->group(function () {
             Route::get('/dashboard/service-analytics', [DashboardController::class, 'serviceAnalytics']);
             
             // Reservation Management
-            Route::get('/reservations', [AdminReservationController::class, 'index']);
-            Route::get('/reservations/{id}', [AdminReservationController::class, 'show']);
             Route::put('/reservations/{id}', [AdminReservationController::class, 'update']);
             Route::put('/reservations/{id}/patient-details', [AdminReservationController::class, 'updatePatientDetails']);
             Route::delete('/reservations/{id}', [AdminReservationController::class, 'destroy']);
@@ -93,6 +91,9 @@ Route::prefix('admin')->group(function () {
             Route::get('/rontgens', [RontgenController::class, 'index']);
             Route::get('/rontgens/{id}', [RontgenController::class, 'show']);
             Route::get('/rontgens/{id}/download', [RontgenController::class, 'download']);
+            
+            Route::get('/reservations', [AdminReservationController::class, 'index']);
+            Route::get('/reservations/{id}', [AdminReservationController::class, 'show']);
 
             
             Route::get('/tags', [TagController::class, 'index']);

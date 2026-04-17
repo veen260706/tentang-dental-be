@@ -29,6 +29,10 @@ class RontgenController extends Controller
                 $query->where('patient_id', $request->patient_id);
             }
 
+            if ($request->has('status')) {
+            $query->where('status', $request->status);
+        }
+
             $rontgens = $query->latest()->paginate(10);
             return $this->paginatedResourceResponse(
                 $rontgens,

@@ -6,6 +6,7 @@ RUN apk add --no-cache \
     git \
     unzip \
     icu-libs \
+    libxml2 \
     libjpeg-turbo \
     libpng \
     freetype \
@@ -16,6 +17,7 @@ RUN apk add --no-cache \
     && apk add --no-cache --virtual .build-deps \
     $PHPIZE_DEPS \
     icu-dev \
+    libxml2-dev \
     libjpeg-turbo-dev \
     libpng-dev \
     freetype-dev \

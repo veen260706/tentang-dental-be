@@ -17,8 +17,11 @@ use App\Http\Controllers\Api\Public\DoctorController;
 use App\Http\Controllers\Api\Public\FaqController;
 use App\Http\Controllers\Api\Public\GalleryController;
 use App\Http\Controllers\Api\Public\PromoController;
+use App\Http\Controllers\Api\Public\ReservationController as PublicReservationController;
 use App\Http\Controllers\Api\Public\ServiceController;
 use App\Http\Controllers\Api\Public\TestimonialController;
+use App\Http\Controllers\Api\Admin\NotificationController;
+use App\Http\Controllers\Api\Admin\TagController;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/promos', [PromoController::class, 'index']);
@@ -39,6 +42,8 @@ Route::get('/testimonials', [TestimonialController::class, 'index']);
 
 Route::get('/faqs', [FaqController::class, 'index']);
 
+Route::post('/reservations', [PublicReservationController::class, 'store']);
+
 Route::prefix('admin')->group(function () {
     Route::post('/login', [AuthController::class, 'login']);
     Route::post('/register', [AuthController::class, 'register']);
@@ -58,6 +63,7 @@ Route::prefix('admin')->group(function () {
             Route::apiResource('services', AdminServiceController::class);
             Route::apiResource('articles', AdminArticleController::class);
             Route::apiResource('galleries', AdminGalleryController::class);
+            Route::get('/doctors/schedule-options', [AdminDoctorController::class, 'scheduleOptions']);
             Route::apiResource('doctors', AdminDoctorController::class);
             Route::apiResource('testimonials', AdminTestimonialController::class);
             Route::apiResource('faqs', AdminFaqController::class);
@@ -84,11 +90,18 @@ Route::prefix('admin')->group(function () {
             // Shared read/download access
             Route::get('/patients', [PatientController::class, 'index']);
             Route::get('/patients/{id}', [PatientController::class, 'show']);
+            Route::get('/patients/{id}/rontgens', [PatientController::class, 'rontgens']);
             Route::get('/patients/{id}/download-pdf', [PatientController::class, 'downloadPdf']);
 
             Route::get('/rontgens', [RontgenController::class, 'index']);
             Route::get('/rontgens/{id}', [RontgenController::class, 'show']);
             Route::get('/rontgens/{id}/download', [RontgenController::class, 'download']);
+
+            
+            Route::get('/tags', [TagController::class, 'index']);
+            Route::get('/notifications', [NotificationController::class, 'index']);
+            Route::put('/notifications/read-all', [NotificationController::class, 'markAllRead']);
+            Route::put('/notifications/{id}/read', [NotificationController::class, 'markRead']);
         });
         
         Route::middleware('role:rontgen')->group(function () {

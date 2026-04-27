@@ -2,198 +2,237 @@
 
 namespace App\Http\Controllers\Api\Public;
 
-use App\Http\Controllers\Controller;
-use App\Models\Patient;
-use App\Models\PatientMedicalHistory;
-use App\Models\PatientDentalHistory;
-use App\Models\Reservation;
-use App\Http\Requests\StoreReservationNewPatientRequest;
-use App\Http\Requests\StoreReservationExistingPatientRequest;
 use App\Helpers\FileHelper;
-use Illuminate\Support\Facades\DB;
+use App\Http\Controllers\Controller;
+use App\Http\Requests\StorePublicReservationRequest;
+use App\Http\Resources\Admin\ReservationListResource;
+use App\Models\Doctor;
+use App\Models\Patient;
+use App\Models\Reservation;
+use Carbon\Carbon;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 
 class ReservationController extends Controller
 {
-    public function storeNewPatient(StoreReservationNewPatientRequest $request)
-    {
-        DB::beginTransaction();
-        
-        try {
-            $patient = Patient::create([
-                'name' => $request->name,
-                'nickname' => $request->nickname,
-                'gender' => $request->gender,
-                'age' => $request->age,
-                'birth_place' => $request->birth_place,
-                'birth_date' => $request->birth_date,
-                'address' => $request->address,
-                'village' => $request->village,
-                'district' => $request->district,
-                'city' => $request->city,
-                'phone' => $request->phone,
-                'occupation' => $request->occupation,
-                'parent_name' => $request->parent_name,
-                'height' => $request->height,
-                'weight' => $request->weight,
-            ]);
+	public function store(StorePublicReservationRequest $request)
+	{
+		DB::beginTransaction();
 
-            PatientMedicalHistory::create([
-                'patient_id' => $patient->id,
-                'has_allergy' => $request->has_allergy,
-                'allergy_detail' => $request->allergy_detail,
-                'has_systemic_disease' => $request->has_systemic_disease,
-                'systemic_disease_detail' => $request->systemic_disease_detail,
-                'undergoing_treatment' => $request->undergoing_treatment,
-                'treatment_detail' => $request->treatment_detail,
-                'ever_hospitalized' => $request->ever_hospitalized,
-                'hospitalized_reason' => $request->hospitalized_reason,
-                'smoking_or_alcohol' => $request->smoking_or_alcohol,
-            ]);
+		try {
+			$doctor = Doctor::find($request->doctor_id);
 
-            PatientDentalHistory::create([
-                'patient_id' => $patient->id,
-                'frequent_tooth_pain' => $request->frequent_tooth_pain,
-                'tooth_pain_detail' => $request->tooth_pain_detail,
-                'bleeding_gums' => $request->bleeding_gums,
-                'ever_dental_treatment' => $request->ever_dental_treatment,
-                'dental_treatment_detail' => $request->dental_treatment_detail,
-                'brushing_frequency' => $request->brushing_frequency,
-                'use_floss_or_mouthwash' => $request->use_floss_or_mouthwash,
-                'bad_habits' => $request->bad_habits,
-                'bad_habits_detail' => $request->bad_habits_detail,
-                'ever_braces' => $request->ever_braces,
-                'braces_years' => $request->braces_years,
-                'root_canal_treatment' => $request->root_canal_treatment,
-                'root_canal_detail' => $request->root_canal_detail,
-                'dentures' => $request->dentures,
-                'routine_checkup' => $request->routine_checkup,
-                'dental_checkup_frequency' => $request->dental_checkup_frequency,
-            ]);
+			if (!$doctor || !$this->isDoctorAvailable($doctor, $request->reservation_date, $request->appointment_time)) {
+				DB::rollBack();
 
-            $reservation = Reservation::create([
-                'patient_id' => $patient->id,
-                'doctor_id' => $request->doctor_id,
-                'complain' => $request->complain,
-                'reservation_date' => $request->reservation_date,
-                'appointment_time' => $request->appointment_time,
-                'status' => 'pending',
-            ]);
+				return response()->json(
+					FileHelper::formatResponse(false, null, 'Waktu tidak tersedia dalam jadwal dokter'),
+					422
+				);
+			}
 
-            // Attach Services (max 3)
-            $reservation->services()->attach($request->service_ids);
+			$patient = null;
 
-            DB::commit();
+			if ($request->patient_category === 'existing') {
+				$patient = Patient::find($request->patient_id);
 
-            $data = [
-                'reservation_id' => $reservation->id,
-                'patient_id' => $patient->id,
-                'patient_name' => $patient->name,
-                'reservation_date' => $reservation->reservation_date,
-                'appointment_time' => $reservation->appointment_time,
-                'status' => $reservation->status,
-            ];
+				if (!$patient) {
+					DB::rollBack();
 
-            return response()->json(
-                FileHelper::formatResponse(true, $data, 'Reservasi berhasil dibuat. Silakan datang sesuai jadwal yang dipilih.'),
-                201
-            );
+					return response()->json(
+						FileHelper::formatResponse(false, null, 'Nomor pasien tidak ditemukan. Pastikan nomor pasien benar atau gunakan kategori pasien baru.'),
+						404
+					);
+				}
 
-        } catch (\Exception $e) {
-            DB::rollBack();
-            
-            return response()->json(
-                FileHelper::formatResponse(false, null, 'Gagal membuat reservasi: ' . $e->getMessage()),
-                500
-            );
-        }
-    }
+				$patient->update([
+					'name' => $request->name,
+					'phone' => $request->phone,
+					'birth_date' => $request->birth_date ?? $patient->birth_date,
+					'age' => $request->age ?? $patient->age,
+				]);
+			}
 
-    public function storeExistingPatient(StoreReservationExistingPatientRequest $request)
-    {
-        DB::beginTransaction();
-        
-        try {
-            $patient = Patient::find($request->patient_id);
-            
-            if (!$patient) {
-                return response()->json(
-                    FileHelper::formatResponse(false, null, 'Data pasien tidak ditemukan'),
-                    404
-                );
-            }
+			if ($request->patient_category === 'new') {
+				if (Patient::where('phone', $request->phone)->exists()) {
+					DB::rollBack();
 
-            $reservation = Reservation::create([
-                'patient_id' => $request->patient_id,
-                'doctor_id' => $request->doctor_id,
-                'complain' => $request->complain,
-                'reservation_date' => $request->reservation_date,
-                'appointment_time' => $request->appointment_time,
-                'status' => 'pending',
-            ]);
+					return response()->json(
+						FileHelper::formatResponse(false, null, 'Nomor telepon sudah terdaftar. Gunakan kategori pasien lama.'),
+						422
+					);
+				}
 
-            // Attach Services (max 3)
-            $reservation->services()->attach($request->service_ids);
+				$patient = Patient::create([
+					'name' => $request->name,
+					'phone' => $request->phone,
+					'gender' => $request->input('gender', 'male'),
+					'address' => $request->input('address', '-'),
+					'birth_date' => $request->birth_date,
+					'age' => $request->age,
+				]);
+			}
 
-            DB::commit();
+			$reservation = Reservation::create([
+				'patient_id' => $patient->id,
+				'patient_category' => $request->patient_category,
+				'doctor_id' => $request->doctor_id,
+				'complain' => $request->complain,
+				'reservation_date' => $request->reservation_date,
+				'birth_date' => $request->birth_date,
+				'age' => $request->age,
+				'appointment_time' => $request->appointment_time,
+				'status' => 'pending',
+			]);
 
-            $data = [
-                'reservation_id' => $reservation->id,
-                'patient_id' => $patient->id,
-                'patient_name' => $patient->name,
-                'reservation_date' => $reservation->reservation_date,
-                'appointment_time' => $reservation->appointment_time,
-                'status' => $reservation->status,
-            ];
+			$reservation->services()->attach($request->service_ids);
 
-            return response()->json(
-                FileHelper::formatResponse(true, $data, 'Reservasi berhasil dibuat. Silakan datang sesuai jadwal yang dipilih.'),
-                201
-            );
+			DB::commit();
 
-        } catch (\Exception $e) {
-            DB::rollBack();
-            
-            return response()->json(
-                FileHelper::formatResponse(false, null, 'Gagal membuat reservasi: ' . $e->getMessage()),
-                500
-            );
-        }
-    }
+			$reservation->load(['patient', 'doctor', 'services']);
 
-    public function checkPatient(Request $request)
-    {
-        $request->validate([
-            'phone' => 'required|string|max:20',
-        ]);
+			return response()->json(
+				FileHelper::formatResponse(true, new ReservationListResource($reservation), 'Reservasi berhasil dibuat dan menunggu konfirmasi admin.'),
+				201
+			);
+		} catch (\Exception $e) {
+			DB::rollBack();
 
-        try {
-            $patient = Patient::where('phone', $request->phone)
-                ->select('id', 'name', 'phone', 'gender', 'age')
-                ->first();
+			return response()->json(
+				FileHelper::formatResponse(false, null, 'Gagal membuat reservasi: ' . $e->getMessage()),
+				500
+			);
+		}
+	}
 
-            if ($patient) {
-                return response()->json(
-                    FileHelper::formatResponse(true, [
-                        'exists' => true,
-                        'patient' => $patient,
-                    ], 'Pasien ditemukan'),
-                    200
-                );
-            } else {
-                return response()->json(
-                    FileHelper::formatResponse(true, [
-                        'exists' => false,
-                        'patient' => null,
-                    ], 'Pasien tidak ditemukan. Silakan registrasi sebagai pasien baru.'),
-                    200
-                );
-            }
-        } catch (\Exception $e) {
-            return response()->json(
-                FileHelper::formatResponse(false, null, 'Terjadi kesalahan: ' . $e->getMessage()),
-                500
-            );
-        }
-    }
+	public function checkPatient(Request $request)
+	{
+		$request->validate([
+			'phone' => 'required|string|max:20',
+		]);
+
+		try {
+			$patient = Patient::where('phone', $request->phone)
+				->select('id', 'name', 'phone', 'gender', 'age')
+				->first();
+
+			if ($patient) {
+				return response()->json(
+					FileHelper::formatResponse(true, [
+						'exists' => true,
+						'patient' => $patient,
+					], 'Pasien ditemukan'),
+					200
+				);
+			}
+
+			return response()->json(
+				FileHelper::formatResponse(true, [
+					'exists' => false,
+					'patient' => null,
+				], 'Pasien tidak ditemukan. Silakan registrasi sebagai pasien baru.'),
+				200
+			);
+		} catch (\Exception $e) {
+			return response()->json(
+				FileHelper::formatResponse(false, null, 'Terjadi kesalahan: ' . $e->getMessage()),
+				500
+			);
+		}
+	}
+
+	private function isDoctorAvailable(Doctor $doctor, string $date, string $time): bool
+	{
+		$schedule = $doctor->schedule;
+
+		if (is_string($schedule)) {
+			$decoded = json_decode($schedule, true);
+			$schedule = is_array($decoded) ? $decoded : [];
+		} else {
+			$schedule = is_array($schedule) ? $schedule : [];
+		}
+
+		if (empty($schedule)) {
+			return false;
+		}
+
+		$dayName = strtolower(Carbon::parse($date)->englishDayOfWeek);
+		$dayMap = [
+			'monday' => 'senin',
+			'tuesday' => 'selasa',
+			'wednesday' => 'rabu',
+			'thursday' => 'kamis',
+			'friday' => 'jumat',
+			'saturday' => 'sabtu',
+			'sunday' => 'minggu',
+		];
+
+		$localizedDayName = $dayMap[$dayName] ?? $dayName;
+		$appointmentTime = Carbon::createFromFormat('H:i', $time)->format('H:i');
+		$timeRanges = [];
+
+		if ($this->isAssocArray($schedule)) {
+			$dayRanges = $schedule[$localizedDayName] ?? $schedule[$dayName] ?? [];
+			if (is_string($dayRanges)) {
+				$dayRanges = [$dayRanges];
+			}
+
+			if (is_array($dayRanges)) {
+				foreach ($dayRanges as $range) {
+					if (is_string($range)) {
+						$timeRanges[] = $range;
+					}
+				}
+			}
+		} else {
+			foreach ($schedule as $scheduleItem) {
+				if (!is_string($scheduleItem)) {
+					continue;
+				}
+
+				if (
+					stripos($scheduleItem, $localizedDayName) !== false ||
+					stripos($scheduleItem, $dayName) !== false
+				) {
+					$timeRanges[] = $scheduleItem;
+				}
+			}
+		}
+
+		foreach ($timeRanges as $rangeText) {
+			[$startTime, $endTime] = $this->extractTimeRange($rangeText);
+			if (!$startTime || !$endTime) {
+				continue;
+			}
+
+			if ($appointmentTime >= $startTime && $appointmentTime <= $endTime) {
+				return true;
+			}
+		}
+
+		return false;
+	}
+
+	private function extractTimeRange(string $text): array
+	{
+		if (!preg_match('/(\d{1,2})[\.:](\d{2})\s*-\s*(\d{1,2})[\.:](\d{2})/', $text, $matches)) {
+			return [null, null];
+		}
+
+		$startHour = str_pad($matches[1], 2, '0', STR_PAD_LEFT);
+		$startMin = $matches[2];
+		$endHour = str_pad($matches[3], 2, '0', STR_PAD_LEFT);
+		$endMin = $matches[4];
+
+		return ["$startHour:$startMin", "$endHour:$endMin"];
+	}
+
+	private function isAssocArray(array $array): bool
+	{
+		if ($array === []) {
+			return false;
+		}
+
+		return array_keys($array) !== range(0, count($array) - 1);
+	}
 }

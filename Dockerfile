@@ -1,84 +1,31 @@
-FROM php:8.4-cli-alpine
+FROM php:8.2-fpm-alpine
 
-# System dependencies + PHP extensions needed by Laravel and project packages
 RUN apk add --no-cache \
-    bash \
-    git \
-    unzip \
-    icu-libs \
-    libxml2 \
-    libjpeg-turbo \
-    libpng \
-    freetype \
-    libwebp \
-    libzip \
-    sqlite-libs \
-    oniguruma \
-    && apk add --no-cache --virtual .build-deps \
-    $PHPIZE_DEPS \
-    icu-dev \
-    libxml2-dev \
-    libjpeg-turbo-dev \
-    libpng-dev \
-    freetype-dev \
-    libwebp-dev \
-    libzip-dev \
-    sqlite-dev \
-    oniguruma-dev \
-    && docker-php-ext-configure gd --with-freetype --with-jpeg --with-webp \
-    && docker-php-ext-install -j$(nproc) \
-    bcmath \
-    dom \
-    exif \
-    gd \
-    intl \
-    mbstring \
-    pdo \
-    pdo_mysql \
-    pdo_sqlite \
-    xml \
-    zip \
-    && apk del .build-deps \
-    && rm -rf /var/cache/apk/*
+    git curl libpng-dev libjpeg-turbo-dev freetype-dev \
+    libzip-dev zip unzip oniguruma-dev mysql-client \
+    nginx supervisor
 
-# Composer binary
-COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
+RUN docker-php-ext-configure gd --with-freetype --with-jpeg \
+    && docker-php-ext-install pdo_mysql mbstring exif pcntl bcmath gd zip
+
+COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
 
 WORKDIR /var/www/html
 
-# Install PHP dependencies first for better Docker cache reuse
 COPY composer.json composer.lock ./
-RUN composer install \
-    --no-dev \
-    --no-interaction \
-    --prefer-dist \
-    --optimize-autoloader \
-    --no-progress \
-    --no-scripts
+RUN composer install --no-dev --optimize-autoloader --no-interaction --no-scripts
 
-# Copy application files
 COPY . .
 
-# Rebuild autoload with full source available
-RUN composer dump-autoload --no-dev --optimize --classmap-authoritative --no-interaction --no-scripts
+RUN composer run-script post-autoload-dump || true
 
-# Ensure writable directories exist
-RUN mkdir -p storage/framework/cache \
-    storage/framework/sessions \
-    storage/framework/testing \
-    storage/framework/views \
-    storage/logs \
-    bootstrap/cache \
-    && chown -R www-data:www-data storage bootstrap/cache public \
-    && chmod -R 775 storage bootstrap/cache public
+RUN chown -R www-data:www-data storage bootstrap/cache \
+    && chmod -R 755 storage bootstrap/cache \
+    && mkdir -p /var/log/supervisor
 
-ENV APP_ENV=production \
-    APP_DEBUG=false \
-    LOG_CHANNEL=stderr \
-    PORT=10000
+COPY docker/nginx.conf /etc/nginx/http.d/default.conf
+COPY docker/supervisord.conf /etc/supervisord.conf
 
-EXPOSE 10000
+EXPOSE 80
 
-USER www-data
-
-CMD ["sh", "-c", "php artisan migrate --force && php artisan db:seed --force && php artisan storage:link && php artisan serve --host=0.0.0.0 --port=10000"]
+CMD ["/usr/bin/supervisord", "-c", "/etc/supervisord.conf"]
